@@ -151,12 +151,7 @@ class Client {
     }
   }
 
-  ///NATS Client Constructor
-  Client() {
-    _steamHandle();
-  }
-
-  void _steamHandle() {
+  void _streamHandle() {
     _channelStream.stream.listen((d) {
       _buffer.addAll(d);
       // org code
@@ -262,8 +257,8 @@ class Client {
         if (_channelStream.isClosed) {
           _channelStream = StreamController();
         }
-        var sucess = await _connectUri(uri, timeout: timeout);
-        if (!sucess) {
+        var success = await _connectUri(uri, timeout: timeout);
+        if (!success) {
           await Future.delayed(Duration(seconds: retryInterval));
           continue;
         }
@@ -354,7 +349,8 @@ class Client {
           });
           return true;
         default:
-          throw Exception(NatsException('schema ${uri.scheme} not support'));
+          throw Exception(
+              NatsException('schema ${uri.scheme} is not supported'));
       }
     } catch (e) {
       return false;
@@ -617,7 +613,8 @@ class Client {
   ///publish by string
   Future<bool> pubString(String subject, String str,
       {String? replyTo, bool buffer = true, Header? header}) async {
-    return pub(subject, Uint8List.fromList(utf8.encode(str)), replyTo: replyTo, buffer: buffer);
+    return pub(subject, Uint8List.fromList(utf8.encode(str)),
+        replyTo: replyTo, buffer: buffer);
   }
 
   Future<bool> _pub(_Pub p) async {
