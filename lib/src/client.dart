@@ -68,8 +68,6 @@ class _Pub {
   _Pub(this.subject, this.data, this.replyTo);
 }
 
-
-
 /// A NATS client that handles connections to NATS servers and provides pub/sub functionality.
 ///
 /// The client supports:
