@@ -12,12 +12,22 @@ import 'message.dart';
 import 'nkeys.dart';
 import 'subscription.dart';
 
+
 enum _ReceiveState {
   idle, //op=msg -> msg
   msg, //newline -> idle
 }
 
-///status of the nats client
+/// Represents the current connection status of the NATS client.
+///
+/// The status transitions through different states during connection lifecycle:
+/// - [Status.disconnected]: Initial state or when connection is lost
+/// - [Status.connecting]: Actively trying to establish first connection
+/// - [Status.reconnecting]: Attempting to reconnect after disconnect
+/// - [Status.tlsHandshake]: Performing TLS handshake for secure connections
+/// - [Status.infoHandshake]: Exchanging initial info with server
+/// - [Status.connected]: Successfully connected and ready for operations
+/// - [Status.closed]: Connection permanently closed
 enum Status {
   /// disconnected or not connected
   disconnected,
@@ -58,11 +68,41 @@ class _Pub {
   _Pub(this.subject, this.data, this.replyTo);
 }
 
-///NATS client
+
+
+/// A NATS client that handles connections to NATS servers and provides pub/sub functionality.
+///
+/// The client supports:
+/// - Multiple transport protocols (WebSocket, TCP, TLS)
+/// - Automatic reconnection
+/// - JSON encoding/decoding
+/// - Request-reply pattern
+/// - Message headers
+/// - Queue groups
+/// - TLS/SSL security
+///
+/// Example usage:
+/// ```dart
+/// final client = Client();
+/// await client.connect(Uri.parse('nats://localhost:4222'));
+///
+/// // Subscribe to messages
+/// final sub = client.sub('foo');
+/// sub.stream.listen((msg) => print('Received: ${msg.data}'));
+///
+/// // Publish messages
+/// client.pubString('foo', 'Hello NATS!');
+///
+/// // Make request
+/// final response = await client.requestString('service', 'request');
+///
+/// // Close when done
+/// await client.close();
+/// ```
 class Client {
   var _ackStream = StreamController<bool>.broadcast();
   _ClientStatus _clientStatus = _ClientStatus.init;
-  WebSocketChannel? _wsChannel;
+  WebSocketChannel? _wsChannel; 
   Socket? _tcpSocket;
   SecureSocket? _secureSocket;
   bool _tlsRequired = false;
@@ -71,38 +111,125 @@ class Client {
   Info _info = Info();
   late Completer _pingCompleter;
   late Completer _connectCompleter;
-
-  /// Error handler for websocket errors
+  
+  /// Handler function for WebSocket connection errors.
+  ///
+  /// By default, throws a [NatsException] with the error message.
+  /// Can be overridden to provide custom error handling behavior.
+  ///
+  /// The handler receives the error object as a parameter.
+  /// ```dart
+  /// client.wsErrorHandler = (error) {
+  ///   print('WebSocket error: $error');
+  ///   // Custom error handling...
+  /// };
+  /// ```
   Function(dynamic) wsErrorHandler = (e) {
     throw NatsException('listen ws error: $e');
   };
 
-  var _status = Status.disconnected;
+  Status _status = Status.disconnected;
 
-  /// true if connected
+  /// Returns whether the client is currently connected to a NATS server.
+  ///
+  /// Returns `true` if the client's status is [Status.connected], `false` otherwise.
+  /// This can be used to check the connection state before performing operations.
+  /// ```dart
+  /// if (client.connected) {
+  ///   client.pubString('foo', 'message');
+  /// }
+  /// ```
   bool get connected => _status == Status.connected;
 
   final _statusController = StreamController<Status>.broadcast();
 
-  var _channelStream = StreamController();
+  StreamController _channelStream = StreamController();
 
-  ///status of the client
+  /// Gets the current status of the NATS client connection.
+  ///
+  /// Returns a [Status] enum value indicating the current state:
+  /// - [Status.disconnected] - Not connected to any server
+  /// - [Status.tlsHandshake] - Performing TLS handshake
+  /// - [Status.infoHandshake] - Performing initial INFO handshake
+  /// - [Status.connected] - Successfully connected and ready
+  /// - [Status.closed] - Connection has been closed
+  /// - [Status.reconnecting] - Attempting to reconnect
+  /// - [Status.connecting] - Initial connection attempt
   Status get status => _status;
 
-  /// accept bad certificate NOT recomend to use in production
+  /// Whether to accept invalid/self-signed SSL certificates.
+  ///
+  /// When set to `true`, the client will accept invalid or self-signed SSL certificates
+  /// during TLS handshakes. This is useful for development and testing, but should
+  /// **not** be used in production as it bypasses security checks.
+  ///
+  /// ```dart
+  /// final client = Client()
+  ///   ..acceptBadCert = true; // Only for development/testing
+  /// ```
+  /// 
+  /// Defaults to `false`.
   bool acceptBadCert = false;
 
-  /// Stream status for status update
+  /// Stream of [Status] updates for monitoring the client's connection state.
+  ///
+  /// This stream emits [Status] events whenever the client's connection state changes.
+  /// Listeners can use this to react to connection changes like disconnects or reconnects.
+  ///
+  /// ```dart
+  /// client.statusStream.listen((status) {
+  ///   switch (status) {
+  ///     case Status.connected:
+  ///       print('Connected to NATS server');
+  ///       break;
+  ///     case Status.disconnected:
+  ///       print('Lost connection to server');
+  ///       break;
+  ///     // Handle other status changes...
+  ///   }
+  /// });
+  /// ```
   Stream<Status> get statusStream => _statusController.stream;
 
-  var _connectOption = ConnectOption();
+  ConnectOption _connectOption = ConnectOption();
 
-  ///SecurityContext
+  /// The security context used for TLS/SSL connections.
+  ///
+  /// This allows configuring certificates and keys for secure connections:
+  /// ```dart
+  /// final context = SecurityContext()
+  ///   ..setTrustedCertificates('rootCA.pem')
+  ///   ..useCertificateChain('client-cert.pem')
+  ///   ..usePrivateKey('client-key.pem');
+  /// 
+  /// final client = Client()
+  ///   ..securityContext = context;
+  /// ```
+  /// 
+  /// Can be null if TLS/SSL is not needed.
+  /// 
+  /// See also:
+  /// * [connect] - Uses this context when establishing TLS connections
+  /// * [acceptBadCert] - Related setting for certificate validation
   SecurityContext? securityContext;
 
   Nkeys? _nkeys;
 
-  /// Nkeys seed
+  /// The seed value used for NATS authentication with NKeys.
+  ///
+  /// NKeys provides a public-key signature system for NATS authentication.
+  /// The seed is used to generate key pairs for signing server challenges.
+  ///
+  /// Can be set to enable NKey-based auth:
+  /// ```dart
+  /// client.seed = 'SUAGM5PX4CUE...'; // Set NKey seed
+  /// ```
+  /// 
+  /// Set to null to disable NKey authentication.
+  /// 
+  /// See also:
+  /// * [Nkeys] - Handles NKey operations
+  /// * [_sign] - Uses seed to sign server challenges
   String? get seed => _nkeys?.seed;
   set seed(String? newseed) {
     if (newseed == null) {
@@ -115,7 +242,43 @@ class Client {
   final _jsonDecoder = <Type, dynamic Function(String)>{};
   // final _jsonEncoder = <Type, String Function(Type)>{};
 
-  /// add json decoder for type <T>
+  /// Creates a new NATS client instance.
+  ///
+  /// The client starts in a disconnected state. Call [connect] to establish
+  /// a connection to a NATS server.
+  ///
+  /// Example:
+  /// ```dart
+  /// final client = Client();
+  /// await client.connect(Uri.parse('nats://localhost:4222'));
+  /// ```
+  ///
+  /// See also:
+  /// * [connect] - Establishes connection to a NATS server
+  /// * [close] - Closes the client connection
+  /// * [Status] - Connection status values
+  Client() {
+    _streamHandle();
+  }
+
+  /// Adds a JSON decoder for a specific type.
+  ///
+  /// This method allows registering a custom JSON decoder for a given type.
+  /// The decoder function converts a JSON string into an instance of the specified type.
+  ///
+  /// Example:
+  /// ```dart
+  /// client.registerJsonDecoder<Person>((json) => Person.fromJson(json));
+  /// ```
+  ///
+  /// Parameters:
+  /// - [f] The decoder function that takes a JSON string and returns an instance of type [T]
+  ///
+  /// Throws:
+  /// - [NatsException] if attempting to register a decoder for dynamic type
+  ///
+  /// See also:
+  /// * [Message] - Uses registered decoders to parse message payloads
   void registerJsonDecoder<T>(T Function(String) f) {
     if (T == dynamic) {
       NatsException('can not register dyname type');
@@ -131,7 +294,19 @@ class Client {
   //   _jsonEncoder[T] = f as String Function(Type);
   // }
 
-  ///server info
+  /// Returns the current server information.
+  ///
+  /// Contains details about the connected NATS server including:
+  /// - Server ID and version
+  /// - Connection information
+  /// - Server configuration
+  /// - Authentication requirements
+  ///
+  /// Returns null if not connected to a server.
+  ///
+  /// See also:
+  /// * [Info] - Server information data structure
+  /// * [connect] - Establishes server connection and populates info
   Info? get info => _info;
 
   final _subs = <int, Subscription>{};
@@ -187,7 +362,26 @@ class Client {
     });
   }
 
-  /// Connect to NATS server
+  /// Establishes a connection to a NATS server at the specified URI.
+  ///
+  /// Parameters:
+  /// - [uri] - The URI of the NATS server to connect to (e.g. nats://localhost:4222)
+  /// - [connectOption] - Optional configuration for the connection
+  /// - [timeout] - Connection timeout in seconds (default: 5)
+  /// - [retry] - Whether to retry failed connections (default: true)
+  /// - [retryInterval] - Seconds between retry attempts (default: 10)
+  /// - [retryCount] - Number of retry attempts (-1 for infinite, default: 3)
+  /// - [securityContext] - Optional SSL/TLS security context for secure connections
+  ///
+  /// Throws:
+  /// - [NatsException] if client is already in use
+  /// - Error if client status is not disconnected/closed
+  ///
+  /// Example:
+  /// ```dart
+  /// final client = Client();
+  /// await client.connect(Uri.parse('nats://localhost:4222'));
+  /// ```
   Future connect(
     Uri uri, {
     ConnectOption? connectOption,
@@ -549,10 +743,44 @@ class Client {
     }
   }
 
-  /// get server max payload
+  /// Gets the maximum payload size supported by the server in bytes.
+  ///
+  /// This value is obtained from the server's INFO message during connection.
+  /// Messages larger than this size will be rejected by the server.
+  ///
+  /// Example:
+  /// ```dart
+  /// final maxSize = client.maxPayload();
+  /// if (data.length > maxSize!) {
+  ///   throw Exception('Payload too large'); 
+  /// }
+  /// ```
+  ///
+  /// Returns:
+  /// - The maximum payload size in bytes if connected to a server
+  /// - null if not connected or server info not available
+  ///
+  /// See also:
+  /// * [Info] - Contains server configuration including max payload
+  /// * [pub] - Publishing method that uses this limit
   int? maxPayload() => _info.maxPayload;
 
-  ///ping server current not implement pong verification
+  /// Sends a PING message to the NATS server and waits for a PONG response.
+  ///
+  /// Note: Currently does not implement PONG verification.
+  ///
+  /// Returns a [Future] that completes when the PONG is received.
+  /// The future may complete with an error if the connection is lost.
+  ///
+  /// Example:
+  /// ```dart
+  /// try {
+  ///   await client.ping();
+  ///   print('Server responded');
+  /// } catch (e) {
+  ///   print('Server did not respond: $e');
+  /// }
+  /// ```
   Future ping() {
     _pingCompleter = Completer();
     _add('ping');
@@ -563,11 +791,48 @@ class Client {
     _add('connect ' + jsonEncode(c.toJson()));
   }
 
-  ///default buffer action for pub
-  var defaultPubBuffer = true;
+  /// Whether to buffer publish operations when disconnected.
+  ///
+  /// When true (default), publish operations will be buffered if the client is not connected.
+  /// The buffered messages will be sent once the connection is re-established.
+  /// When false, publish operations will fail immediately if not connected.
+  ///
+  /// Example:
+  /// ```dart
+  /// client.defaultPubBuffer = false; // Disable buffering
+  /// final success = await client.pubString('foo', 'message');
+  /// // success will be false if not connected
+  /// ```
+  ///
+  /// See also:
+  /// * [pub] - Uses this setting when buffer parameter is not specified
+  /// * [pubString] - String publishing method that uses this setting
+  /// * [Status] - Connection status that affects buffering
+  bool defaultPubBuffer = true;
 
-  ///publish by byte (Uint8List) return true if sucess sending or buffering
-  ///return false if not connect
+  /// Publishes a binary message to the specified subject.
+  ///
+  /// Parameters:
+  /// - [subject] The subject to publish to
+  /// - [data] The binary message payload as a [Uint8List]
+  /// - [replyTo] Optional reply subject for request-reply messaging
+  /// - [buffer] Whether to buffer the message if disconnected (defaults to [defaultPubBuffer])
+  /// - [header] Optional message headers
+  ///
+  /// Returns a [Future<bool>] that completes with:
+  /// - `true` if the message was sent successfully or buffered
+  /// - `false` if the client is disconnected and buffering is disabled
+  ///
+  /// Example:
+  /// ```dart
+  /// final data = Uint8List.fromList([1, 2, 3]);
+  /// final success = await client.pub('foo', data);
+  /// ```
+  ///
+  /// See also:
+  /// * [pubString] - Convenience method for publishing string messages
+  /// * [defaultPubBuffer] - Controls default buffering behavior
+  /// * [Header] - For adding headers to messages
   Future<bool> pub(String? subject, Uint8List data,
       {String? replyTo, bool? buffer, Header? header}) async {
     buffer ??= defaultPubBuffer;
@@ -610,7 +875,26 @@ class Client {
     return true;
   }
 
-  ///publish by string
+  /// Publishes a string message to the specified subject.
+  ///
+  /// Convenience method that converts the string [str] to bytes and publishes it.
+  /// Returns a Future that completes with true if the publish was successful.
+  ///
+  /// Parameters:
+  /// - [subject] The subject to publish to
+  /// - [str] The string message to publish
+  /// - [replyTo] Optional reply subject for request-reply messaging
+  /// - [buffer] Whether to buffer messages when disconnected (defaults to true)
+  /// - [header] Optional message headers
+  ///
+  /// Example:
+  /// ```dart
+  /// final success = await client.pubString('foo', 'Hello NATS!');
+  /// ```
+  ///
+  /// See also:
+  /// * [pub] - Core publish method for raw byte data
+  /// * [Header] - For adding headers to messages
   Future<bool> pubString(String subject, String str,
       {String? replyTo, bool buffer = true, Header? header}) async {
     return pub(subject, Uint8List.fromList(utf8.encode(str)),
@@ -647,7 +931,29 @@ class Client {
   //   return c as String Function(dynamic);
   // }
 
-  ///subscribe to subject option with queuegroup
+  /// Subscribes to a NATS subject with optional queue group and JSON decoding.
+  ///
+  /// Creates a new subscription for receiving messages published to [subject].
+  /// Returns a [Subscription] that provides a stream of messages.
+  ///
+  /// Parameters:
+  /// - [subject] The subject to subscribe to
+  /// - [queueGroup] Optional queue group for load balancing
+  /// - [jsonDecoder] Optional custom JSON decoder function
+  ///
+  /// Example:
+  /// ```dart
+  /// // Basic subscription
+  /// final sub = client.sub('foo');
+  /// sub.stream.listen((msg) => print(msg.data));
+  ///
+  /// // With queue group
+  /// final worker = client.sub('tasks', queueGroup: 'workers');
+  /// ```
+  ///
+  /// See also:
+  /// * [Subscription] - The subscription object returned
+  /// * [unSub] - To unsubscribe when done
   Subscription<T> sub<T>(
     String subject, {
     String? queueGroup,
@@ -678,7 +984,23 @@ class Client {
     }
   }
 
-  ///unsubscribe
+  /// Unsubscribes from a subscription to stop receiving messages.
+  ///
+  /// Parameters:
+  /// - [s] The [Subscription] object to unsubscribe from
+  ///
+  /// Returns `true` if successfully unsubscribed, `false` if subscription not found.
+  ///
+  /// Example:
+  /// ```dart
+  /// final sub = client.sub('foo');
+  /// // ... later when done
+  /// client.unSub(sub);
+  /// ```
+  ///
+  /// See also:
+  /// * [sub] - To create subscriptions
+  /// * [unSubById] - To unsubscribe using subscription ID
   bool unSub(Subscription s) {
     var sid = s.sid;
 
@@ -690,7 +1012,22 @@ class Client {
     return true;
   }
 
-  ///unsubscribe by id
+  /// Unsubscribes from a subscription using its ID number.
+  ///
+  /// Parameters:
+  /// - [sid] The subscription ID to unsubscribe from
+  ///
+  /// Returns `true` if successfully unsubscribed, `false` if subscription not found.
+  ///
+  /// Example:
+  /// ```dart
+  /// final sub = client.sub('foo');
+  /// client.unSubById(sub.sid);
+  /// ```
+  ///
+  /// See also:
+  /// * [unSub] - To unsubscribe using Subscription object
+  /// * [sub] - To create subscriptions
   bool unSubById(int sid) {
     if (_subs[sid] == null) return false;
     return unSub(_subs[sid]!);
@@ -707,9 +1044,9 @@ class Client {
   }
 
   void _add(String str) {
-     if (status == Status.closed || status == Status.disconnected) {
+    if (status == Status.closed || status == Status.disconnected) {
       return;
-     }
+    }
     if (_wsChannel != null) {
       // if (_wsChannel?.closeCode == null) return;
       _wsChannel?.sink.add(utf8.encode(str + '\r\n'));
@@ -743,7 +1080,20 @@ class Client {
 
   var _inboxPrefix = '_INBOX';
 
-  /// get Inbox prefix default '_INBOX'
+  /// The inbox prefix used for generating unique inbox subjects.
+  ///
+  /// This prefix is used when creating inbox subjects for request-reply messaging.
+  /// The default prefix is '_INBOX'. It can only be changed before the client is used.
+  ///
+  /// Example:
+  /// ```dart
+  /// client.inboxPrefix = 'MYAPP.INBOX'; // Must be set before connecting
+  /// ```
+  /// 
+  /// See also:
+  /// * [request] - Uses inbox subjects for request-reply messaging
+  /// * [requestString] - String-based request-reply messaging
+  String get inboxPrefix => _inboxPrefix;
   set inboxPrefix(String i) {
     if (_clientStatus == _ClientStatus.used) {
       throw NatsException('inbox prefix can not change when connection in use');
@@ -752,26 +1102,44 @@ class Client {
     _inboxSubPrefix = null;
   }
 
-  /// set Inbox prefix default '_INBOX'
-  String get inboxPrefix => _inboxPrefix;
-
   final _inboxs = <String, Subscription>{};
   final _mutex = Mutex();
   String? _inboxSubPrefix;
   Subscription? _inboxSub;
 
-  /// Request will send a request payload and deliver the response message,
-  /// TimeoutException on timeout.
+  /// Sends a request to the specified subject and returns the response message.
+  ///
+  /// The [subj] parameter specifies the subject to send the request to.
+  /// The [data] parameter contains the request payload as a [Uint8List].
+  /// 
+  /// Optional parameters:
+  /// - [timeout] - Duration to wait for response before throwing TimeoutException (default: 2 seconds)
+  /// - [jsonDecoder] - Custom JSON decoder function for parsing response data
+  ///
+  /// Returns a [Message<T>] containing the response.
+  /// 
+  /// Throws:
+  /// - [TimeoutException] if no response received within timeout duration
+  /// - [NatsException] if client is not connected
   ///
   /// Example:
   /// ```dart
   /// try {
-  ///   await client.request('service', Uint8List.fromList('request'.codeUnits),
-  ///       timeout: Duration(seconds: 2));
+  ///   final response = await client.request<String>(
+  ///     'service',
+  ///     Uint8List.fromList('request'.codeUnits),
+  ///     timeout: Duration(seconds: 2)
+  ///   );
+  ///   print('Got response: ${response.data}');
   /// } on TimeoutException {
-  ///   timeout = true;
+  ///   print('Request timed out');
   /// }
   /// ```
+  /// 
+  /// See also:
+  /// * [requestString] - Convenience method for string requests
+  /// * [requestJson] - Convenience method for JSON requests
+  /// * [Message] - Response message type
   Future<Message<T>> request<T>(
     String subj,
     Uint8List data, {
@@ -822,7 +1190,20 @@ class Client {
     return msg;
   }
 
-  /// requestString() helper to request()
+  /// Sends a string request to a NATS subject and waits for a response.
+  ///
+  /// A convenience wrapper around [request] that accepts a string payload.
+  ///
+  /// Parameters:
+  /// - [subj] The subject to publish the request to
+  /// - [data] The string data to send in the request
+  /// - [timeout] How long to wait for a response before throwing TimeoutException (default 2s)
+  /// - [jsonDecoder] Optional function to decode JSON response data to type T
+  ///
+  /// Returns a [Message<T>] containing the response.
+  ///
+  /// Throws [TimeoutException] if no response is received within the timeout duration.
+  /// Throws [NatsException] if the client is not connected.
   Future<Message<T>> requestString<T>(
     String subj,
     String data, {
@@ -842,13 +1223,35 @@ class Client {
     _statusController.add(newStatus);
   }
 
-  /// close connection and cancel all future retries
+  /// Closes the connection to the NATS server and cancels all future reconnection attempts.
+  ///
+  /// This is a more forceful version of [close] that ensures no automatic reconnection
+  /// will be attempted after closing. It:
+  /// - Sets the retry flag to false to prevent reconnection attempts
+  /// - Calls [close] to cleanly shutdown the connection
+  ///
+  /// Use this when you want to permanently close the connection without possibility
+  /// of automatic reconnection.
   Future forceClose() async {
     this._retry = false;
     this.close();
   }
 
-  ///close connection to NATS server unsub to server but still keep subscription list at client
+  /// Closes the connection to the NATS server.
+  ///
+  /// This method:
+  /// - Sets the client status to closed
+  /// - Unsubscribes from all server-side subscriptions
+  /// - Clears inbox mappings
+  /// - Closes all socket connections (WebSocket, TCP, TLS)
+  /// - Cleans up internal state
+  ///
+  /// Note: This preserves the client-side subscription list, allowing reconnection
+  /// to restore subscriptions if [retry] is true.
+  ///
+  /// See also:
+  /// - [forceClose] for permanently closing without reconnection possibility
+  /// - [tcpClose] for testing-only connection closure
   Future close() async {
     _setStatus(Status.closed);
     _backendSubs.forEach((_, s) => s = false);
@@ -866,8 +1269,22 @@ class Client {
     _clientStatus = _ClientStatus.closed;
   }
 
-  /// discontinue tcpConnect. use connect(uri) instead
-  ///Backward compatible with 0.2.x version
+  /// Establishes a TCP connection to a NATS server (Deprecated).
+  ///
+  /// This method is deprecated in favor of using [connect] with a URI.
+  /// It exists for backward compatibility with version 0.2.x.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Old way (deprecated):
+  /// await client.tcpConnect('localhost', port: 4222);
+  /// 
+  /// // New way:
+  /// await client.connect(Uri.parse('nats://localhost:4222'));
+  /// ```
+  ///
+  /// @deprecated Use [connect] with a URI instead
+  @Deprecated('use connect(uri) instead')
   Future tcpConnect(String host,
       {int port = 4222,
       ConnectOption? connectOption,
@@ -883,18 +1300,59 @@ class Client {
     );
   }
 
-  /// close tcp connect Only for testing
+  /// Closes the TCP connection for testing purposes only.
+  ///
+  /// This method should only be used in test scenarios where you need to simulate
+  /// a connection closure. For normal application shutdown, use [close] instead.
+  ///
+  /// The connection will be marked as disconnected after closing.
   Future<void> tcpClose() async {
     await _tcpSocket?.close();
     _setStatus(Status.disconnected);
   }
 
-  /// wait until client connected
+  /// Waits until the client establishes a connection to the NATS server.
+  ///
+  /// This method blocks until the client's status changes to [Status.connected].
+  /// It's useful when you need to ensure the client is connected before proceeding
+  /// with operations.
+  ///
+  /// Example:
+  /// ```dart
+  /// var client = Client();
+  /// await client.connect(Uri.parse('nats://localhost:4222'));
+  /// await client.waitUntilConnected();
+  /// // Client is now connected and ready for operations
+  /// ```
+  ///
+  /// See also:
+  /// * [waitUntil] - Wait for a specific status
+  /// * [status] - Get the current connection status
   Future<void> waitUntilConnected() async {
     await waitUntil(Status.connected);
   }
 
-  /// wait untril status
+  /// Waits until the client reaches a specific connection status.
+  ///
+  /// This method blocks until the client's status matches the specified [s] status.
+  /// It's useful when you need to wait for the client to reach a particular state
+  /// before proceeding with operations.
+  ///
+  /// Parameters:
+  /// * [s] - The target [Status] to wait for
+  ///
+  /// Example:
+  /// ```dart
+  /// var client = Client();
+  /// await client.connect(Uri.parse('nats://localhost:4222'));
+  /// await client.waitUntil(Status.connected);
+  /// // Client has now reached the connected status
+  /// ```
+  ///
+  /// See also:
+  /// * [waitUntilConnected] - Convenience method to wait for connected status
+  /// * [status] - Get the current connection status
+  /// * [statusStream] - Stream of status changes
   Future<void> waitUntil(Status s) async {
     if (status == s) {
       return;
