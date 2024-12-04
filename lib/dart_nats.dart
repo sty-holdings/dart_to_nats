@@ -1,4 +1,5 @@
-library dart_nats;
+/// NATS Client for Dart applications
+library dart_to_nats;
 
 export 'src/client.dart';
 export 'src/common.dart';
