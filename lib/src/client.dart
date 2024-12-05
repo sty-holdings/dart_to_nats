@@ -1136,7 +1136,6 @@ class Client {
   /// 
   /// See also:
   /// * [requestString] - Convenience method for string requests
-  /// * [requestJson] - Convenience method for JSON requests
   /// * [Message] - Response message type
   Future<Message<T>> request<T>(
     String subj,
