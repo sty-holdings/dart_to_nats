@@ -106,7 +106,7 @@ class Client {
   bool _tlsRequired = false;
   bool _retry = false;
 
-  Info _info = Info();
+  late Info _info;
   late Completer _pingCompleter;
   late Completer _connectCompleter;
   
@@ -610,7 +610,7 @@ class Client {
         _receiveState = _ReceiveState.idle;
         break;
       case 'info':
-        _info = Info.fromJson(jsonDecode(data));
+        _info = Info.fromJson(data);
         if (_tlsRequired && !(_info.tlsRequired ?? false)) {
           throw Exception(NatsException('require TLS but server not required'));
         }
@@ -786,7 +786,7 @@ class Client {
   }
 
   void _addConnectOption(ConnectOption c) {
-    _add('connect ' + jsonEncode(c.toJson()));
+    _add('connect ' + c.toJson());
   }
 
   /// Whether to buffer publish operations when disconnected.
