@@ -28,7 +28,27 @@ String newInbox({String inboxPrefix = '_INBOX', bool secure = true}) {
   return inboxPrefix + _nuid.next();
 }
 
-///nuid port from go nats
+/// A utility class for generating unique identifiers (NUIDs) for NATS messaging.
+///
+/// This is a port of the NUID (Nano Unique IDentifier) implementation from Go NATS.
+/// It generates unique identifiers that are fast, safe and minimize collisions by combining
+/// a pre-randomized prefix with an auto-incrementing sequence.
+///
+/// The generated IDs:
+/// - Are 22 characters long
+/// - Use a base62 encoding (0-9, A-Z, a-z)
+/// - Have a 12 character random prefix that is periodically regenerated
+/// - Include a 10 character sequential component
+///
+/// Example:
+/// ```dart
+/// final nuid = Nuid();
+/// final id = nuid.next(); // Returns something like "ABCDEFGHIJKL0123456789"
+/// ```
+///
+/// See also:
+/// * [newInbox] - Uses this class to generate unique inbox subjects
+/// * The original Go implementation at https://github.com/nats-io/nuid
 class Nuid {
   static const _digits =
       '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
