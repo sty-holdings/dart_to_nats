@@ -1,15 +1,15 @@
 ## TLS, Token, User/Pass, NKey, JWT support NOW.
 
 
-# Dart-NATS 
+# Dart_To_NATS 
 A Dart client for the [NATS](https://nats.io) messaging system. Design to use with Dart and flutter.
+Forked from [dart-nats](https://github.com/chartchuo/dart-nats).
 
 ### Flutter Web Support by WebSocket 
 ```dart
 client.connect(Uri.parse('ws://localhost:80'));
 client.connect(Uri.parse('wss://localhost:443'));
 ```
-
 
 ### Flutter Other Platform Support both TCP Socket and WebSocket
 ```dart
@@ -32,6 +32,18 @@ client.connect(Uri.parse('wss://localhost:443'));
     // 
     print(status);
    });
+```
+
+### Connecting with TLS certs
+```dart
+var client = Client();
+final securityContext = SecurityContext()
+  ..setTrustedCertificates('../rootCA.pem')
+  ..useCertificateChain('../client-cert.pem')
+  ..usePrivateKey('../client-key.pem');
+
+  await client.connect(Uri.parse('tls://localhost:4222'),
+      securityContext: securityContext);
 ```
 
 ### Turn off retry and catch exception
@@ -178,7 +190,7 @@ client.connect(
 
 
 
-Full Flutter sample code [example/flutter/main.dart](https://github.com/chartchuo/dart-nats/blob/master/example/flutter/main_dart)
+Full Flutter sample code [example/flutter/main.dart](https://github.com/sty-holdings/dart_to_nats/blob/master/example/flutter/main_dart)
 
 
 ## Features
