@@ -197,25 +197,59 @@ class Header {
   }
 }
 
-/// Message class
+
+
+
+/// A class representing a NATS message with typed payload data.
+///
+/// Messages contain the payload data along with metadata like subject, reply-to subject,
+/// headers, and subscription ID. The payload can be accessed as raw bytes or converted
+/// to a typed object using a JSON decoder.
+///
+/// Type parameter [T] defines the expected type of the decoded payload data.
+///
+/// Example:
+/// ```dart
+/// // String message
+/// final msg = Message<String>('subject', 1, utf8.encode('hello'), client);
+/// print(msg.string); // Prints: hello
+///
+/// // JSON message with custom type
+/// final msg = Message<User>(
+///   'users.created',
+///   1,
+///   jsonBytes,
+///   client,
+///   jsonDecoder: (json) => User.fromJson(jsonDecode(json))
+/// );
+/// final user = msg.data; // Decoded User object
+/// ```
+///
+/// See also:
+/// * [Header] - For working with NATS message headers
+/// * [Client] - The NATS client that processes these messages
 class Message<T> {
   ///subscriber id auto generate by client
   final int sid;
 
-  /// subject  and replyto
-  final String? subject, replyTo;
+  /// The subject this message was published to
+  final String? subject;
+
+  /// The reply-to subject for request-reply messaging
+  final String? replyTo;
+
   final Client _client;
 
-  /// message header
+  /// Optional headers containing metadata key-value pairs for this message
   final Header? header;
 
-  ///payload of data in byte
+  /// Raw binary payload data as bytes
   final Uint8List byte;
 
-  ///convert from json string to T for structure data
+  /// Optional function to decode JSON string payloads into type T
   T Function(String)? jsonDecoder;
 
-  ///payload of data in byte
+  /// Returns the decoded message payload as type T, using [jsonDecoder] if provided
   T get data {
     // if (jsonDecoder == null) throw Exception('no converter. can not convert. use msg.byte instead');
     if (jsonDecoder == null) {
@@ -224,21 +258,79 @@ class Message<T> {
     return jsonDecoder!(string);
   }
 
-  ///constructor
+  /// Creates a new message with the given subject, subscriber ID, and payload.
+  ///
+  /// Parameters:
+  /// - [subject] The subject this message was published to
+  /// - [sid] The subscriber ID assigned by the client
+  /// - [byte] The raw binary payload data
+  /// - [_client] The NATS client that processes this message
+  /// - [replyTo] Optional reply-to subject for request-reply messaging
+  /// - [jsonDecoder] Optional function to decode JSON payloads into type T
+  /// - [header] Optional headers containing metadata key-value pairs
+  ///
+  /// Example:
+  /// ```dart
+  /// final msg = Message<String>(
+  ///   'foo.bar',
+  ///   1,
+  ///   utf8.encode('hello'),
+  ///   client,
+  ///   replyTo: 'response'
+  /// );
+  /// ```
+  ///
+  /// See also:
+  /// * [data] - Gets the decoded payload using [jsonDecoder]
+  /// * [string] - Gets the payload as a UTF-8 string
+  /// * [respond] - Sends a response on the [replyTo] subject
   Message(this.subject, this.sid, this.byte, this._client,
       {this.replyTo, this.jsonDecoder, this.header});
 
-  ///payload in string
+  /// Returns the message payload decoded as a UTF-8 string
   String get string => utf8.decode(byte);
 
-  ///Respond to message
+  /// Sends a response on this message's reply subject.
+  ///
+  /// Parameters:
+  /// - [data] The binary response payload to send
+  ///
+  /// Returns:
+  /// - `true` if the response was sent successfully
+  /// - `false` if there is no reply subject to respond to
+  ///
+  /// Example:
+  /// ```dart
+  /// final response = Uint8List.fromList([1, 2, 3]);
+  /// msg.respond(response);
+  /// ```
+  ///
+  /// See also:
+  /// * [respondString] - Convenience method for responding with strings
+  /// * [replyTo] - The reply subject used for the response
   bool respond(Uint8List data) {
     if (replyTo == null || replyTo == '') return false;
     _client.pub(replyTo, data);
     return true;
   }
 
-  ///Respond to string message
+  /// Sends a string response on this message's reply subject.
+  ///
+  /// Parameters:
+  /// - [str] The string response to send, which will be UTF-8 encoded
+  ///
+  /// Returns:
+  /// - `true` if the response was sent successfully
+  /// - `false` if there is no reply subject to respond to
+  ///
+  /// Example:
+  /// ```dart
+  /// msg.respondString('Hello back!');
+  /// ```
+  ///
+  /// See also:
+  /// * [respond] - For sending binary responses
+  /// * [replyTo] - The reply subject used for the response
   bool respondString(String str) {
     return respond(Uint8List.fromList(utf8.encode(str)));
   }
