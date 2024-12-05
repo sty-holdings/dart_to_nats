@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "Dart",
-            "program": "bin/main.dart",
+            "program": "example/secure_main.dart",
             "request": "launch",
             "type": "dart"
         }
