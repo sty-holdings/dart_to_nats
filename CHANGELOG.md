@@ -1,3 +1,7 @@
+## 0.1.2
+- Added request/reply examples in README.md
+- Removed `requestJson` from documentation of `request` method in `Client` class
+
 ## 0.1.1
 - Bumped SDK version to 3.5.4
 
