@@ -29,8 +29,31 @@ class Header {
     return headers![key];
   }
 
-  /// construct from bytes
-  static Header fromBytes(Uint8List b) {
+  /// Creates a [Header] instance by parsing a byte array containing NATS headers.
+  ///
+  /// Parses a byte array containing NATS headers in the format:
+  /// ```
+  /// NATS/1.0\r\n
+  /// Key1:Value1\r\n
+  /// Key2:Value2\r\n
+  /// ```
+  /// 
+  /// Parameters:
+  /// - [b] The byte array containing the header data in UTF-8 encoding
+  ///
+  /// Returns a new [Header] instance containing the parsed version and headers.
+  ///
+  /// Example:
+  /// ```dart
+  /// final bytes = utf8.encode('NATS/1.0\r\nContent-Type:application/json\r\n');
+  /// final header = Header.fromBytes(bytes);
+  /// print(header.get('Content-Type')); // Prints: application/json
+  /// ```
+  ///
+  /// See also:
+  /// * [toBytes] - Converts headers back to bytes
+  /// * [Header] - Main constructor for creating headers directly
+  factory Header.fromBytes(Uint8List b) {
     var str = utf8.decode(b);
     Map<String, String> m = {};
     var strList = str.split('\r\n');
