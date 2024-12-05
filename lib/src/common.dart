@@ -652,7 +652,18 @@ class NkeysException implements Exception {
   /// The error message describing what went wrong.
   final String? message;
 
-  /// NkeysException
+  /// Creates a new [NkeysException] with an optional error [message].
+  ///
+  /// The [message] parameter provides details about what caused the NKEYS-related error.
+  /// If omitted, a generic exception without a specific message is created.
+  ///
+  /// Example:
+  /// ```dart
+  /// throw NkeysException('Invalid seed format detected');
+  /// ```
+  ///
+  /// See also:
+  /// * [NatsException] - For general NATS errors
   NkeysException(this.message);
 
   /// Creates a new [NkeysException] with an optional error [message].
