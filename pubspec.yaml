@@ -5,7 +5,7 @@ homepage: https://github.com/sty-holdings/dart_to_nats
 repository: https://github.com/sty-holdings/dart_to_nats
 
 environment:
-  sdk: '>=2.15.0 <4.0.0'
+  sdk: '>=3.5.4 <4.0.0'
 
 # dependencies:
 
