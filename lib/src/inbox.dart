@@ -3,7 +3,24 @@ import 'dart:typed_data';
 
 var _nuid = Nuid();
 
-///generate inbox
+/// Generates a unique inbox subject name for request-reply messaging.
+///
+/// Creates a unique subject name by combining the optional [inboxPrefix] with a
+/// cryptographically secure random string when [secure] is true, or a pseudo-random
+/// string otherwise.
+///
+/// Parameters:
+/// - [inboxPrefix] - Optional prefix for the inbox name, defaults to '_INBOX'
+/// - [secure] - Whether to use cryptographically secure random generation,
+///   defaults to true
+///
+/// Returns a unique inbox subject string that can be used for request-reply messaging.
+///
+/// Example:
+/// ```dart
+/// final inbox = newInbox(); // Returns something like '_INBOX.a1b2c3d4'
+/// final customInbox = newInbox(inboxPrefix: 'MYAPP'); // Returns 'MYAPP.a1b2c3d4'
+/// ```
 String newInbox({String inboxPrefix = '_INBOX', bool secure = true}) {
   if (secure) {
     _nuid = Nuid();
