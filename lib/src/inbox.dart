@@ -71,18 +71,64 @@ class Nuid {
     resetSequential();
   }
 
-  ///constructure
+  /// Creates a new [Nuid] instance with a randomized prefix and sequential counter.
+  ///
+  /// The constructor initializes a new NUID generator by:
+  /// - Generating a random 12-character prefix using [randomizePrefix]
+  /// - Setting up the sequential counter using [resetSequential]
+  ///
+  /// Example:
+  /// ```dart
+  /// final nuid = Nuid();
+  /// final id = nuid.next(); // Generates a unique ID
+  /// ```
+  ///
+  /// See also:
+  /// * [getInstance] - Gets the singleton instance
+  /// * [next] - Generates the next unique ID
   Nuid() {
     randomizePrefix();
     resetSequential();
   }
 
-  /// get instance
+  /// Gets the singleton instance of [Nuid].
+  ///
+  /// Returns the global shared [Nuid] instance that can be used across the application.
+  /// This is useful when you want to ensure all IDs are generated from the same sequence.
+  ///
+  /// Example:
+  /// ```dart
+  /// final nuid = Nuid.getInstance();
+  /// final id = nuid.next(); // Gets next ID from shared instance
+  /// ```
+  ///
+  /// See also:
+  /// * [Nuid] constructor - Creates a new independent instance
+  /// * [next] - Generates the next unique ID
   static getInstance() {
     return _nuid;
   }
 
-  ///generate next nuid
+  /// Generates the next unique NUID (Network Unique Identifier).
+  ///
+  /// Updates the internal sequential counter and regenerates the prefix if needed
+  /// to ensure uniqueness. The resulting NUID is encoded as a base62 string.
+  ///
+  /// The NUID consists of:
+  /// - A random 12-character prefix
+  /// - A sequential counter encoded in base62
+  ///
+  /// Example:
+  /// ```dart
+  /// final nuid = Nuid();
+  /// final id = nuid.next(); // Returns something like "ABCD1234EFGH"
+  /// ```
+  ///
+  /// Returns a string containing the next unique NUID.
+  ///
+  /// See also:
+  /// * [randomizePrefix] - Generates a new random prefix
+  /// * [resetSequential] - Resets the sequential counter
   String next() {
     _seq = _seq + _inc;
     if (_seq >= _maxSeq) {
@@ -99,7 +145,24 @@ class Nuid {
     return String.fromCharCodes(b);
   }
 
-  ///reset sequential
+  /// Resets the sequential counter to a new random value.
+  ///
+  /// Generates a new random sequential counter and increment value using a
+  /// cryptographically secure random number generator. The new counter value
+  /// is guaranteed to be within the valid range (less than [_maxSeq]).
+  ///
+  /// The increment value is randomly chosen between [_minInc] and [_maxInc]
+  /// to help ensure uniqueness of generated IDs.
+  ///
+  /// Example:
+  /// ```dart
+  /// final nuid = Nuid();
+  /// nuid.resetSequential(); // Resets to new random counter
+  /// ```
+  ///
+  /// See also:
+  /// * [next] - Generates the next unique ID
+  /// * [randomizePrefix] - Generates a new random prefix
   void resetSequential() {
     Random();
     var _rng = Random.secure();
@@ -111,7 +174,24 @@ class Nuid {
     _inc = _minInc + _rng.nextInt(_maxInc - _minInc);
   }
 
-  ///random new prefix
+  /// Generates a new random prefix for the NUID.
+  ///
+  /// Uses a cryptographically secure random number generator to create a new
+  /// prefix of length [_preLen]. Each character in the prefix is randomly 
+  /// selected from the allowed digit set.
+  ///
+  /// The prefix helps ensure uniqueness of generated IDs across multiple
+  /// processes or machines.
+  ///
+  /// Example:
+  /// ```dart
+  /// final nuid = Nuid();
+  /// nuid.randomizePrefix(); // Generates new random prefix
+  /// ```
+  ///
+  /// See also:
+  /// * [next] - Generates the next unique ID using this prefix
+  /// * [resetSequential] - Resets the sequential counter
   void randomizePrefix() {
     _pre = Uint8List(_preLen);
     var _rng = Random.secure();
