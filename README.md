@@ -16,6 +16,20 @@ client.connect(Uri.parse('ws://localhost:80'));
 client.connect(Uri.parse('wss://localhost:443'));
 ```
 
+### request/reply
+```dart
+var client = Client();
+await client.connect(Uri.parse('nats://localhost:4222'));
+
+// send request to 'service' topic and get response as string
+var response = await client.requestString<String>('service', '');
+var message = response.string;
+
+// send request to 'service' topic and cast response as Student
+var response2 = await client.request<Student>('service', '');
+var student = response2.data; // type of student is `Student`
+```
+
 ### background retry 
 ```dart
   // unawait 
