@@ -1,3 +1,6 @@
+## 0.2.0
+- Added `header` to `pub` and `request` methods in `Client` class
+
 ## 0.1.2
 - Added request/reply examples in README.md
 - Removed `requestJson` from documentation of `request` method in `Client` class
