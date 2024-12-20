@@ -1,4 +1,3 @@
-///message model sending from NATS server
 import 'dart:convert';
 import 'dart:typed_data';
 

@@ -1,4 +1,3 @@
-///subscription model
 import 'dart:async';
 
 import 'client.dart';
