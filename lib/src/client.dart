@@ -1142,6 +1142,7 @@ class Client {
     Uint8List data, {
     Duration timeout = const Duration(seconds: 2),
     T Function(String)? jsonDecoder,
+    Header? header,
   }) async {
     if (!connected) {
       throw NatsException("request error: client not connected");
@@ -1165,7 +1166,7 @@ class Client {
     var inbox = _inboxSubPrefix! + '.' + Nuid().next();
     var stream = _inboxSub!.stream;
 
-    pub(subj, data, replyTo: inbox);
+    pub(subj, data, replyTo: inbox, header: header);
 
     try {
       do {
@@ -1206,12 +1207,14 @@ class Client {
     String data, {
     Duration timeout = const Duration(seconds: 2),
     T Function(String)? jsonDecoder,
+    Header? header,
   }) {
     return request<T>(
       subj,
       Uint8List.fromList(data.codeUnits),
       timeout: timeout,
       jsonDecoder: jsonDecoder,
+      header: header,
     );
   }
 
