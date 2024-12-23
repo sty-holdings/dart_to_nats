@@ -1,3 +1,7 @@
+## 0.2.1
+- Fixed `pubString` to pass header argument to the `pub` call it wraps
+- Fixed `pub` to add an extra `\r\n` to the end of the headers
+
 ## 0.2.0
 - Added `header` to `pub` and `request` methods in `Client` class
 

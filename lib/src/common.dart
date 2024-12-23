@@ -470,7 +470,7 @@ class ConnectOption {
       this.tlsRequired = false,
       this.name,
       this.lang = 'dart',
-      this.version = '0.1.0',
+      this.version = '0.2.1',
       this.headers = true,
       this.protocol = 1,
       this.echo = false,
