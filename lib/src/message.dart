@@ -192,7 +192,7 @@ class Header {
       str = str + '$k:$v\r\n';
     });
 
-    return Uint8List.fromList(utf8.encode(str));
+    return Uint8List.fromList(utf8.encode(str + '\r\n'));
   }
 }
 
