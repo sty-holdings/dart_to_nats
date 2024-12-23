@@ -1,6 +1,6 @@
 name: dart_to_nats
 description: A Dart client for the NATS messaging system. Forked from [dart-nats](https://github.com/chartchuo/dart-nats).
-version: 0.2.1
+version: 0.2.2
 homepage: https://github.com/sty-holdings/dart_to_nats
 repository: https://github.com/sty-holdings/dart_to_nats
 

@@ -1,3 +1,6 @@
+## 0.2.2
+- Fixed message parsing to remove empty lines from headers in `hmsg`
+
 ## 0.2.1
 - Fixed `pubString` to pass header argument to the `pub` call it wraps
 - Fixed `pub` to add an extra `\r\n` to the end of the headers
