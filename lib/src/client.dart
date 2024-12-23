@@ -896,7 +896,7 @@ class Client {
   Future<bool> pubString(String subject, String str,
       {String? replyTo, bool buffer = true, Header? header}) async {
     return pub(subject, Uint8List.fromList(utf8.encode(str)),
-        replyTo: replyTo, buffer: buffer);
+        replyTo: replyTo, buffer: buffer, header: header);
   }
 
   Future<bool> _pub(_Pub p) async {
