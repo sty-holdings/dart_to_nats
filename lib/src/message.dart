@@ -151,6 +151,7 @@ class Header {
     var str = utf8.decode(b);
     Map<String, String> m = {};
     var strList = str.split('\r\n');
+    strList.removeWhere((element) => element.isEmpty);
     var version = strList[0];
     strList.removeAt(0);
     for (var h in strList) {
